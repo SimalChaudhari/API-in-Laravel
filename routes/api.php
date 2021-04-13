@@ -3,7 +3,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\UserController;
-
+use App\Http\Controllers\API\ProfileController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -17,9 +17,11 @@ use App\Http\Controllers\Api\UserController;
 
 Route::post('invite', [UserController::class, 'invite']);
 Route::post('register', [UserController::class, 'register']);
-Route::get('email/verify/{id}', [UserController::class, 'verify'])->name('verification.verify');
-Route::get('email/resend', [UserController::class, 'resend'])->name('verification.resend');
+Route::post('login', [UserController::class, 'login']);
+Route::post('verify', [UserController::class, 'verify']);
+Route::get('email-resend', [UserController::class, 'resend']);
 
 Route::middleware('auth:api')->group( function () {
-    // Route::resource('profile', UserController::class);
+    Route::get('profile/get', [ProfileController::class, 'show']);
+    Route::post('profile/update', [ProfileController::class, 'update']);
 });

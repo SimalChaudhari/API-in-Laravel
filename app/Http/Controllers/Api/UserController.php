@@ -3,23 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\User;
+use App\Models\User;
 use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Api\BaseController as BaseController;
 use App\Mail\InviteCreated;
+use App\Mail\SendPin;
 use Mail;
 
 class UserController extends BaseController
 {
-    protected $apiKey;
-    protected $list;
-
     public function __construct()
     {
-        $this->apiKey = setting('mailchimp.apikey');
-        $this->list = setting('mailchimp.list_id') ? setting('mailchimp.list_id') : '';
     }
 
     /**
@@ -37,8 +33,7 @@ class UserController extends BaseController
                 if ($validator->fails()) {
                     return $this->sendError('Validation Error.', $validator->errors());       
                 } else {
-                    $mailchimp = new MailChimp($this->apiKey);
-                    $result = Mail::to($request->email)->send(new InviteCreated([]));
+                    $result = Mail::to($request->email)->send(new InviteCreated());
                     return $this->sendResponse($result, 'Invitation has been Sent');
                 }
         } catch (\Exception $e) {
@@ -57,7 +52,6 @@ class UserController extends BaseController
             $validator = Validator::make($request->all(), [
                 'name' => 'required',
                 'user_name' => 'required',
-                'avata' => 'required',
                 'email' => 'required|email',
                 'password' => 'required',
             ]);
@@ -68,13 +62,14 @@ class UserController extends BaseController
     
             $input = $request->all();
             $input['password'] = bcrypt($input['password']);
-            $input['verify_pin'] = Str::random(6);
+            $input['verify_pin'] = mt_rand(100000, 999999);
+            $input['user_role'] = 'user';
+            Mail::to($request->email)->send(new SendPin($input['verify_pin']));
             $user = User::create($input);
-
             $success['token'] =  $user->createToken('Api')->accessToken;
             $success['name'] =  $user->name;
-    
-            return $this->sendResponse($success, 'User register successfully.');
+            return $this->sendResponse($success, 'User register successfully.! Please check your email for verification');
+
         } catch (\Exception $e) {
             return $this->sendError('Invalid Request!', $e->getMessage());  
         }
@@ -88,6 +83,15 @@ class UserController extends BaseController
     public function login(Request $request)
     {
         try {
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email',
+                'password' => 'required',
+            ]);
+    
+            if($validator->fails()){
+                return $this->sendError('Validation Error.', $validator->errors());       
+            }
+
             if(Auth::attempt(['email' => $request->email, 'password' => $request->password])){ 
                 $user = Auth::user(); 
                 $success['token'] =  $user->createToken('Api')->accessToken; 
@@ -105,27 +109,32 @@ class UserController extends BaseController
     {
         try { 
             $validator = Validator::make($request->all(), [
-                'token' => 'required',
+                'verify_pin' => 'required',
             ]);
 
-            $invite = User::where('token', $request->token)->first();
+            if($validator->fails()){
+                return $this->sendError('Validation Error.', $validator->errors());       
+            }
+
+            $invite = User::where('verify_pin', $request->verify_pin)->first();
             if($invite){
-                $invite->token = '';
+                $invite->verify_pin = '';
+                // $invite->is_verified = true;
                 $invite->save();
-                return $this->sendResponse($success, 'User verified successfully.');
+                return $this->sendResponse([], 'User verified successfully!');
             }else{
-                return $this->sendError('Invalid Request!', 'Invalid Token!'); 
+                return $this->sendError('Invalid Request!', 'Invalid Verification Pin!'); 
             }
         } catch (\Exception $e) {
             return $this->sendError('Invalid Request!', $e->getMessage());  
         }
     }
 
-    public function resend() {
-        if (auth()->user()->hasVerifiedEmail()) {
-            return $this->sendError('Invalid Request!', 'Email already verified'); 
-        }
+    // public function resend() {
+    //     if (auth()->user()->hasVerifiedEmail()) {
+    //         return $this->sendError('Invalid Request!', 'Email already verified'); 
+    //     }
     
-        return $this->sendResponse([], 'Email verification link sent on your email id');
-    }
+    //     return $this->sendResponse([], 'Email verification link sent on your email id');
+    // }
 }

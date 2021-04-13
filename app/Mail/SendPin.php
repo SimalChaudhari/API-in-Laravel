@@ -7,18 +7,19 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class InviteCreated extends Mailable
+class SendPin extends Mailable
 {
     use Queueable, SerializesModels;
+    public $verify_pin;
     /**
      * Create a new message instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct($verify_pin)
     {
+        $this->verify_pin = $verify_pin;
     }
-
     /**
      * Build the message.
      *
@@ -26,6 +27,6 @@ class InviteCreated extends Mailable
      */
     public function build()
     {
-        return $this->subject('Invitation')->view('emails.invite');
+        return $this->subject('Email Verification')->view('emails.verification');
     }
 }
